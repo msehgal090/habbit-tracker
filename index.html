@@ -942,15 +942,43 @@
         let currentTimeRange = 'now';
         let deferredPrompt;
 
-        // Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(registration => {
-                console.log('Service Worker registered');
-                addToAlertLog('App installed successfully');
-            }).catch(err => {
-                console.log('Service Worker registration failed:', err);
-            });
-        }
+       <script>
+    // Service Worker Registration - FIXED VERSION
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js', { scope: './' })
+                .then(registration => {
+                    console.log('✅ Service Worker registered:', registration);
+                    addToAlertLog('App ready - Service Worker active');
+                    
+                    // Update on reload
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                console.log('Service Worker updated');
+                            }
+                        });
+                    });
+                })
+                .catch(err => {
+                    console.error('❌ Service Worker registration failed:', err);
+                    addToAlertLog('Service Worker failed: ' + err.message);
+                });
+        });
+    } else {
+        console.warn('Service Worker not supported');
+        addToAlertLog('Service Worker not supported on this device');
+    }
+
+    let habits = JSON.parse(localStorage.getItem('habits')) || [];
+    let alertLog = JSON.parse(localStorage.getItem('alertLog')) || [];
+    let checkInterval;
+    let currentTimeRange = 'now';
+    let deferredPrompt;
+
+    // ... rest of your existing code stays the same ...
+</script>
 
         // PWA Install Prompt
         window.addEventListener('beforeinstallprompt', (e) => {
