@@ -32,7 +32,6 @@
             margin: 0 auto;
         }
 
-        /* App Install Banner */
         .install-banner {
             background: #4caf50;
             color: white;
@@ -81,7 +80,6 @@
             font-weight: 600;
         }
 
-        /* Permission Card */
         .permission-card {
             background: white;
             padding: 20px;
@@ -165,7 +163,6 @@
             color: #667eea;
         }
 
-        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -221,7 +218,6 @@
             overflow-y: auto;
         }
 
-        /* Tabs */
         .tabs {
             display: flex;
             gap: 8px;
@@ -270,7 +266,6 @@
             display: block;
         }
 
-        /* Forms */
         .add-habit-section {
             background: white;
             padding: 20px;
@@ -358,7 +353,6 @@
             width: 100%;
         }
 
-        /* Time Filter */
         .time-filter {
             background: white;
             padding: 15px;
@@ -396,7 +390,6 @@
             border-color: #667eea;
         }
 
-        /* Habits */
         .habits-grid {
             display: flex;
             flex-direction: column;
@@ -709,33 +702,10 @@
             border-radius: 5px;
             font-size: 0.85em;
         }
-
-        /* Loading Animation */
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: white;
-        }
-
-        .spinner {
-            border: 4px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top: 4px solid white;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Install Banner -->
         <div class="install-banner" id="installBanner">
             <div>
                 <strong>📱 Install App</strong><br>
@@ -760,7 +730,6 @@
             </div>
         </header>
 
-        <!-- Tabs -->
         <div class="tabs">
             <button class="tab active" onclick="switchTab('now')">⏰ Now <span class="tab-badge" id="nowBadge">0</span></button>
             <button class="tab" onclick="switchTab('all')">📊 All</button>
@@ -770,7 +739,6 @@
             <button class="tab" onclick="switchTab('stats')">📈 Stats</button>
         </div>
 
-        <!-- Now Tab -->
         <div class="tab-content active" id="tab-now">
             <div class="time-filter">
                 <h3>🕐 Time Filter</h3>
@@ -786,7 +754,6 @@
             <div class="habits-grid" id="habitsContainerNow"></div>
         </div>
 
-        <!-- Add Habit Tab -->
         <div class="tab-content" id="tab-add">
             <div class="add-habit-section">
                 <h2>Add New Habit</h2>
@@ -841,7 +808,6 @@
             </div>
         </div>
 
-        <!-- Statistics Tab -->
         <div class="tab-content" id="tab-stats">
             <div class="stats-grid" id="statsContainer"></div>
             <div class="alert-log" id="alertLog">
@@ -850,23 +816,19 @@
             </div>
         </div>
 
-        <!-- All Habits Tab -->
         <div class="tab-content" id="tab-all">
             <div class="habits-grid" id="habitsContainerAll"></div>
         </div>
 
-        <!-- Building Habits Tab -->
         <div class="tab-content" id="tab-good">
             <div class="habits-grid" id="habitsContainerGood"></div>
         </div>
 
-        <!-- Breaking Habits Tab -->
         <div class="tab-content" id="tab-bad">
             <div class="habits-grid" id="habitsContainerBad"></div>
         </div>
     </div>
 
-    <!-- Permission Modal -->
     <div id="permissionModal" class="modal">
         <div class="modal-content">
             <span class="modal-close" onclick="closePermissionModal()">&times;</span>
@@ -901,19 +863,9 @@
                     <li>Click "Send Test Notification" to verify</li>
                 </ol>
             </div>
-
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                <strong>⚠️ Important:</strong>
-                <ul style="margin: 10px 0 0 20px; line-height: 1.8;">
-                    <li>Keep app open in background for alerts</li>
-                    <li>Add to home screen for better reliability</li>
-                    <li>Some phones need battery optimization disabled</li>
-                </ul>
-            </div>
         </div>
     </div>
 
-    <!-- Sync Modal -->
     <div id="syncModal" class="modal">
         <div class="modal-content">
             <span class="modal-close" onclick="closeSyncModal()">&times;</span>
@@ -943,33 +895,47 @@
         let currentTimeRange = 'now';
         let deferredPrompt;
         let swRegistration = null;
+        let isServiceWorkerReady = false;
 
-        // Service Worker Registration
+        // FIXED: Service Worker Registration with proper state checking
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js', { scope: './' })
-                    .then(registration => {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+                    console.log('✅ Service Worker registered:', registration);
+                    
+                    // Wait for service worker to be active
+                    if (registration.active) {
                         swRegistration = registration;
-                        console.log('✅ Service Worker registered:', registration);
-                        addToAlertLog('Service Worker active - Notifications ready');
-                        
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'activated') {
-                                    console.log('Service Worker updated');
-                                }
-                            });
+                        isServiceWorkerReady = true;
+                        addToAlertLog('✅ Service Worker active - Notifications ready');
+                    } else {
+                        // Wait for it to activate
+                        await navigator.serviceWorker.ready;
+                        swRegistration = await navigator.serviceWorker.getRegistration();
+                        isServiceWorkerReady = true;
+                        addToAlertLog('✅ Service Worker activated - Notifications ready');
+                    }
+                    
+                    // Listen for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                console.log('Service Worker updated');
+                                isServiceWorkerReady = true;
+                            }
                         });
-                    })
-                    .catch(err => {
-                        console.error('❌ Service Worker failed:', err);
-                        addToAlertLog('Service Worker failed: ' + err.message);
                     });
+                } catch (err) {
+                    console.error('❌ Service Worker failed:', err);
+                    addToAlertLog('❌ Service Worker failed: ' + err.message);
+                }
             });
+        } else {
+            addToAlertLog('⚠️ Service Worker not supported on this browser');
         }
 
-        // PWA Install Prompt
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -1004,7 +970,7 @@
                 renderNowTab();
             }, 30000);
             
-            checkReminders();
+            setTimeout(checkReminders, 3000); // Wait 3 seconds for SW to be ready
             addToAlertLog('App started');
         }
 
@@ -1037,33 +1003,50 @@
             document.getElementById('currentTime').textContent = `${timeString}`;
         }
 
-        // FIXED NOTIFICATION FUNCTIONS
+        // FIXED: Improved notification function with better error handling
         async function sendNotification(title, options) {
             try {
-                if (!swRegistration) {
-                    swRegistration = await navigator.serviceWorker.ready;
+                // Method 1: Try Service Worker (preferred for PWA)
+                if ('serviceWorker' in navigator && isServiceWorkerReady) {
+                    try {
+                        if (!swRegistration || !swRegistration.active) {
+                            swRegistration = await navigator.serviceWorker.ready;
+                        }
+                        
+                        // Double check registration is active
+                        if (swRegistration && swRegistration.active) {
+                            await swRegistration.showNotification(title, {
+                                badge: './icon-192.png',
+                                icon: './icon-192.png',
+                                vibrate: [200, 100, 200],
+                                requireInteraction: false,
+                                ...options
+                            });
+                            console.log('✅ Notification sent via Service Worker');
+                            return true;
+                        }
+                    } catch (swError) {
+                        console.warn('SW notification failed, trying fallback:', swError);
+                        addToAlertLog('⚠️ SW notification failed: ' + swError.message);
+                    }
                 }
                 
-                await swRegistration.showNotification(title, {
-                    badge: './icon-192.png',
-                    icon: './icon-192.png',
-                    vibrate: [200, 100, 200],
-                    requireInteraction: false,
-                    ...options
-                });
-                
-                return true;
-            } catch (error) {
-                console.error('Notification error:', error);
-                addToAlertLog('Notification error: ' + error.message);
-                
-                try {
-                    new Notification(title, options);
+                // Method 2: Fallback to regular Notification API
+                if (Notification.permission === 'granted') {
+                    new Notification(title, {
+                        icon: './icon-192.png',
+                        vibrate: [200, 100, 200],
+                        ...options
+                    });
+                    console.log('✅ Notification sent via Notification API');
                     return true;
-                } catch (fallbackError) {
-                    console.error('Fallback notification error:', fallbackError);
-                    return false;
                 }
+                
+                return false;
+            } catch (error) {
+                console.error('❌ All notification methods failed:', error);
+                addToAlertLog('❌ Notification error: ' + error.message);
+                return false;
             }
         }
 
@@ -1111,10 +1094,13 @@
                 if (permission === "granted") {
                     addToAlertLog('✅ Notification permission granted');
                     
-                    await sendNotification("🎉 Notifications Enabled!", {
-                        body: "You'll now receive habit reminders. Click 'Test Notification' to verify!",
-                        tag: 'welcome'
-                    });
+                    // Wait a bit for SW to be ready
+                    setTimeout(async () => {
+                        await sendNotification("🎉 Notifications Enabled!", {
+                            body: "You'll now receive habit reminders. Click 'Test Notification' to verify!",
+                            tag: 'welcome'
+                        });
+                    }, 1000);
                     
                 } else {
                     alert('Permission denied. Enable in:\n\nSettings → Browser → Notifications');
@@ -1144,7 +1130,8 @@
                 addToAlertLog('✅ Test notification sent at ' + now);
                 alert('✅ Test notification sent! Check your notification panel.');
             } else {
-                alert('❌ Failed to send notification. Check console for details.');
+                addToAlertLog('❌ Test notification failed');
+                alert('❌ Failed to send notification. Check Alert Log in Stats tab.');
             }
         }
 
@@ -1406,7 +1393,7 @@
         }
 
         async function checkReminders() {
-            if (Notification.permission !== "granted") return;
+            if (Notification.permission !== "granted" || !isServiceWorkerReady) return;
 
             const now = new Date();
             const currentHour = now.getHours();
@@ -1479,7 +1466,7 @@
                     if (!habit.isMissed) {
                         habit.isMissed = true;
                         
-                        if (Notification.permission === "granted") {
+                        if (Notification.permission === "granted" && isServiceWorkerReady) {
                             await sendNotification(`⚠️ ${habit.name}`, {
                                 body: `${daysDiff} days missed! ${habit.summary}`,
                                 tag: `missed-${habit.id}`,
